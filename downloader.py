@@ -12,6 +12,19 @@ from threading import Thread
 from tkinter import *
 from tkinter import ttk, filedialog
 
+compiledExecutable = False
+
+
+if getattr(sys, 'frozen', False):
+    # if frozen, get embeded file
+    cacert = os.path.join(os.path.dirname(sys.executable), 'cacert.pem')
+    compiledExecutable = True
+#else:
+#    # else just get the default file
+#    cacert = requests.certs.where()
+#https://stackoverflow.com/questions/15157502/requests-library-missing-file-after-cx-freeze
+os.environ["REQUESTS_CA_BUNDLE"] = cacert
+
 parser = argparse.ArgumentParser(description="Download Curse modpack mods")
 parser.add_argument("--manifest", help="manifest.json file from unzipped pack")
 parser.add_argument("--nogui", dest="gui", action="store_false", help="Do not use gui to to select manifest")
@@ -45,8 +58,8 @@ class downloadUI(ttk.Frame):
         self.chooserButton.grid(column=2, row=0, sticky=E)
         chooserContainer.grid(column=0, row=0, sticky=(E,W))
         chooserContainer.columnconfigure(1, weight=1)
-        downloadButton = ttk.Button(self, text="Download mods", command=self.goDownload)
-        downloadButton.grid(column=0, row=1, sticky=(E,W))
+        self.downloadButton = ttk.Button(self, text="Download mods", command=self.goDownload)
+        self.downloadButton.grid(column=0, row=1, sticky=(E,W))
 
         self.logText = Text(self, state="disabled", wrap="none")
         self.logText.grid(column=0, row=2, sticky=(N,E,S,W))
@@ -67,8 +80,10 @@ class downloadUI(ttk.Frame):
         t.start()
 
     def goDownloadBackground(self):
+        self.downloadButton.configure(state="disabled")
         self.chooserButton.configure(state="disabled")
         doDownload(self.manifestPath.get())
+        self.downloadButton.configure(state="enabled")
         self.chooserButton.configure(state="enabled")
 
     def setOutput(self, message):
@@ -87,6 +102,10 @@ class headlessUI():
 programGui = None
 
 def doDownload(manifest):
+    if manifest == '':
+        print("Select a manifest file first!")
+        programGui.setOutput("Select a manifest file first!")
+        return None
     manifestPath = Path(manifest)
     targetDirPath = manifestPath.parent
 
@@ -95,8 +114,15 @@ def doDownload(manifest):
 
     manifestJson = json.loads(manifestText)
 
-    overridePath = Path(targetDirPath, manifestJson['overrides'])
-    minecraftPath = Path(targetDirPath, "minecraft")
+    try:
+        overridePath = Path(targetDirPath, manifestJson['overrides'])
+        minecraftPath = Path(targetDirPath, "minecraft")
+        modsPath = minecraftPath / "mods"
+    except:
+        print("Manifest Error. Make sure you selected a valid pack manifest.json")
+        programGui.setOutput("Manifest Error. Make sure you selected a valid pack manifest.json")
+        return None
+
     if overridePath.exists():
         shutil.move(str(overridePath), str(minecraftPath))
 
@@ -105,28 +131,34 @@ def doDownload(manifest):
 
     # Attempt to set proper portable data directory if asked for
     if args.portable:
-        if '__file__' in globals():
-            cache_path = Path(os.path.dirname(os.path.realpath(__file__)), "CPD_data")
+        if getattr(sys, 'frozen', False):
+            # if frozen, get embeded file
+            cache_path = Path(os.path.join(os.path.dirname(sys.executable), 'curseCache'))
         else:
-            print("Portable data dir not supported for interpreter environment")
-            exit(2)
+            if '__file__' in globals():
+                cache_path = Path(os.path.dirname(os.path.realpath(__file__)), "curseCache")
+            else:
+                print("Portable data dir not supported for interpreter environment")
+                sys.exit(2)
 
     if not cache_path.exists():
         cache_path.mkdir(parents=True)
 
     if not minecraftPath.exists():
         minecraftPath.mkdir()
-        modsPath = minecraftPath / "mods"
-        if not modsPath.exists():
-            modsPath.mkdir()
+        
+    if not modsPath.exists():
+        modsPath.mkdir()
 
     sess = requests.session()
 
     i = 1
     iLen = len(manifestJson['files'])
 
+    print("Cached files are stored here:\n %s\n" % (cache_path))
+    programGui.setOutput("Cached files are stored here:\n %s\n" % (cache_path))
     print("%d files to download" % (iLen))
-    programGui.setOutput("%d files to download" % (iLen))
+    programGui.setOutput("%d files to fetch" % (iLen))
 
     for dependency in manifestJson['files']:
         depCacheDir = cache_path / str(dependency['projectID']) / str(dependency['fileID'])
@@ -138,6 +170,7 @@ def doDownload(manifest):
                 targetFile = minecraftPath / "mods" / depFile.name
                 shutil.copyfile(str(depFile), str(targetFile))
                 programGui.setOutput("[%d/%d] %s (cached)" % (i, iLen, targetFile.name))
+                print("[%d/%d] %s (cached)" % (i, iLen, targetFile.name))
 
                 i += 1
 
@@ -202,6 +235,9 @@ def doDownload(manifest):
 
             i += 1
 
+    programGui.setOutput("Unpacking Complete")
+    print("Unpacking Complete")
+
 if args.gui:
     programGui = downloadUI()
     if args.manifest is not None:
@@ -209,6 +245,11 @@ if args.gui:
     programGui.root.mainloop()
 else:
     programGui = headlessUI()
-    doDownload(args.manifest)
-
-
+    if not args.manifest == None:
+        doDownload(args.manifest)
+    else:
+        if compiledExecutable:
+            print('C:\someFolder\cursePackDownloader.exe --portable --nogui --manefest ["/path/to/manifest.json"]')
+        else:
+            print('CMD>"path/to/python" "/path/to/downloader.py" --portable --nogui --manefest ["/path/to/manifest.json"]')
+            sys.exit()
