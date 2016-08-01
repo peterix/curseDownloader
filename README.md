@@ -29,31 +29,31 @@ A simple script to download mods from a CurseForge Minecraft modpack.
 
     	#### Accepted Argumements
 
-    	- CMD> C:\someFolder\cursePackDownloader.exe --portable --nogui --manefest ["/path/to/manifest.json"]
+    	- CMD> C:\someFolder\cursePackDownloader.exe --portable --nogui --manifest ["/path/to/manifest.json"]
 
     	- portable - makes the downloader cache downloads in a sub folder of current directory it is inside.
     		ex: CMD> C:\someFolder\cursePackDownloader.exe --portable
     		ex folder: C:\someFolder\curseCache
 
     	- manifest - provides commandline option to select manifest.json file.
-    		ex: CMD> C:\someFolder\cursePackDownloader.exe --manefest [/path/to/manifest.json]
+    		ex: CMD> C:\someFolder\cursePackDownloader.exe --manifest [/path/to/manifest.json]
 
     	- nogui - runs prgram in commandline only, and must include the manifest argument as well.
-    		ex: CMD> C:\someFolder\cursePackDownloader.exe --nogui --manefest [/path/to/manifest.json]
+    		ex: CMD> C:\someFolder\cursePackDownloader.exe --nogui --manifest [/path/to/manifest.json]
 
     	Python
 
     	#### Accepted Argumements
 
-    	- CMD>"path/to/python" "/path/to/downloader.py" --portable --nogui --manefest ["/path/to/manifest.json"]
+    	- CMD>"path/to/python" "/path/to/downloader.py" --portable --nogui --manifest ["/path/to/manifest.json"]
 
     	- portable - makes the downloader cache downloads in a sub folder of current directory it is inside.
     		ex: CMD> C:\Python34\python.exe ["/path/to/downloader.py"] --portable
     		ex folder: C:\someFolder\curseCache
 
     	- manifest - provides commandline option to select manifest.json file.
-    		ex: CMD> /path/to/<python> ["/path/to/downloader.py"] --manefest ["/path/to/manifest.json"]
+    		ex: CMD> /path/to/<python> ["/path/to/downloader.py"] --manifest ["/path/to/manifest.json"]
 
     	- nogui - runs program in commandline only, and manifest argument must be provided as well.
-    		ex: CMD> /path/to/<python> ["/path/to/downloader.py"] --nogui --manefest ["/path/to/manifest.json"]
+    		ex: CMD> /path/to/<python> ["/path/to/downloader.py"] --nogui --manifest ["/path/to/manifest.json"]
     	
