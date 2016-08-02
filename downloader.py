@@ -19,9 +19,9 @@ if getattr(sys, 'frozen', False):
     # if frozen, get embeded file
     cacert = os.path.join(os.path.dirname(sys.executable), 'cacert.pem')
     compiledExecutable = True
-#else:
-#    # else just get the default file
-#    cacert = requests.certs.where()
+else:
+    # else just get the default file
+    cacert = requests.certs.where()
 #https://stackoverflow.com/questions/15157502/requests-library-missing-file-after-cx-freeze
 os.environ["REQUESTS_CA_BUNDLE"] = cacert
 
