@@ -14,7 +14,7 @@ from tkinter import ttk, filedialog
 
 compiledExecutable = False
 
-
+# If in frozen state(aka executable) then use this path, else use original path.
 if getattr(sys, 'frozen', False):
     # if frozen, get embeded file
     cacert = os.path.join(os.path.dirname(sys.executable), 'cacert.pem')
@@ -118,8 +118,10 @@ def doDownload(manifest):
         overridePath = Path(targetDirPath, manifestJson['overrides'])
         minecraftPath = Path(targetDirPath, "minecraft")
         modsPath = minecraftPath / "mods"
-    except:
+    except KeyError as e:
+        print('I got a KeyError - reason %s' % str(e))
         print("Manifest Error. Make sure you selected a valid pack manifest.json")
+        programGui.setOutput('I got a KeyError - reason %s' % str(e))
         programGui.setOutput("Manifest Error. Make sure you selected a valid pack manifest.json")
         return None
 
@@ -153,7 +155,14 @@ def doDownload(manifest):
     sess = requests.session()
 
     i = 1
-    iLen = len(manifestJson['files'])
+    try:
+        iLen = len(manifestJson['files'])
+    except KeyError as e:
+        print('I got a KeyError - reason %s' % str(e))
+        print("Manifest Error. Make sure you selected a valid pack manifest.json")
+        programGui.setOutput('I got a KeyError - reason %s' % str(e))
+        programGui.setOutput("Manifest Error. Make sure you selected a valid pack manifest.json")
+        return None
 
     print("Cached files are stored here:\n %s\n" % (cache_path))
     programGui.setOutput("Cached files are stored here:\n %s\n" % (cache_path))
@@ -195,8 +204,8 @@ def doDownload(manifest):
         # Try to add file to cache.
         if not depCacheDir.exists():
             depCacheDir.mkdir(parents=True)
-            with open(str(depCacheDir / fileName), "wb") as mod:
-                mod.write(fileResponse.content)
+        with open(str(depCacheDir / fileName), "wb") as mod:
+            mod.write(fileResponse.content)
 
         i += 1
 
