@@ -54,3 +54,9 @@ docs/_build/
 # PyBuilder
 target/
 /data/*
+
+# PyCharm
+.idea/
+/*.json
+/*.bz2
+/*.txt
