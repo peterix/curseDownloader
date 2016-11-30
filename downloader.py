@@ -4,12 +4,18 @@ import appdirs
 import argparse
 import json
 import os
+import time
 import requests
 import shutil
 from urllib.parse import urlparse, unquote
 from pathlib import Path
 from threading import Thread
 from tkinter import ttk, filedialog, sys, Tk, N, S, E, W, StringVar, Text, Scrollbar, END
+from progressbar import Bar, ETA, AdaptiveETA, Percentage, ProgressBar
+
+
+temp_file_name = "curseDownloader-download.temp"
+sess = requests.session()
 
 
 compiledExecutable = False
@@ -35,9 +41,26 @@ args, unknown = parser.parse_known_args()
 # Simplify output text for both console and GUI.
 def print_text(message):
     message == str(message)
-    print(message)
+    print(message)  # For the console output
     if args.gui:
-        programGui.set_output(message)
+        programGui.set_output(message)  # For the GUI output
+
+
+def get_human_readable(size, precision=2, requestz=-1):
+    suffixes = ['B', 'KB', 'MB', 'GB', 'TB']
+    suffix_index = 0
+    if requestz == -1:
+        while size > 1024 and suffix_index < 4:
+            suffix_index += 1  # increment the index of the suffix
+            size /= 1024.0  # apply the division
+    elif (requestz >= 1 or requestz == 4):
+        i = 0
+        while i < requestz:
+            suffix_index += 1  # increment the index of the suffix
+            size /= 1024.0  # apply the division
+            i += 1
+
+    return "%s%s" % (str("{:.3g}".format(round(size, 2))), suffixes[suffix_index])
 
 
 class DownloadUI(ttk.Frame):
@@ -49,7 +72,7 @@ class DownloadUI(ttk.Frame):
         self.parent.grid(column=0, row=0, sticky=(N, S, E, W))
         self.parent.columnconfigure(0, weight=1)
         self.parent.rowconfigure(0, weight=1)
-        ttk.Frame.__init__(self, self.parent, padding=(6, 6, 14, 14))
+        ttk.Frame.__init__(self, self.parent, padding=(6, 6, 14, 2))
         self.grid(column=0, row=0, sticky=(N, S, E, W))
         self.columnconfigure(0, weight=1)
         self.rowconfigure(2, weight=1)
@@ -59,7 +82,7 @@ class DownloadUI(ttk.Frame):
         self.manifestPath = StringVar()
 
         chooser_container = ttk.Frame(self)
-        self.chooserText = ttk.Label(chooser_container, text="Locate 'manifest.json': ")
+        self.chooserText = ttk.Label(chooser_container, text="Locate your manifest.json: ")
         chooser_entry = ttk.Entry(chooser_container, textvariable=self.manifestPath)
         self.chooserButton = ttk.Button(chooser_container, text="Browse", command=self.choose_file)
         self.chooserText.grid(column=0, row=0, sticky=W)
@@ -77,12 +100,38 @@ class DownloadUI(ttk.Frame):
         self.logScroll.grid(column=1, row=2, sticky=(N, E, S, W))
         self.logText['yscrollcommand'] = self.logScroll.set
 
+        # *** Progress Bars Frame ***
+        progress_bars = ttk.Frame(padding=(6, 2, 14, 2))
+        progress_bars.grid(column=0, row=1, sticky=(E, W))
+        progress_bars.columnconfigure(1, weight=1)
+
+        # *** Total Un-Pack Progress ***
+        self.tl_progressText = ttk.Label(progress_bars, text="Total Unpacking Progress: ")
+        self.tl_progressText.grid(column=0, row=0, sticky=E)
+        self.tl_progress = ttk.Progressbar(progress_bars, orient="horizontal",
+                                           length=200, mode="determinate")
+        self.tl_progress.grid(column=1, row=0, sticky=(E, W))
+        self.tl_progress["value"] = 0
+        self.tl_progress["maximum"] = 100
+
+        # *** Download Progress ***
+        self.dl_progressText = ttk.Label(progress_bars, text="Current Download Progress: ")
+        self.dl_progressText.grid(column=0, row=1, sticky=E)
+        self.dl_progress = ttk.Progressbar(progress_bars, orient="horizontal",
+                                           length=200, mode="determinate")
+        self.dl_progress.grid(column=1, row=1, sticky=(E, W))
+        self.dl_progress["value"] = 0
+        self.dl_progress["maximum"] = 100
+
     def choose_file(self):
         file_path = filedialog.askopenfilename(
             filetypes=(("Json files", "*.json"),),
             initialdir=os.path.expanduser("~"),
             parent=self)
         self.manifestPath.set(file_path)
+        # Reset bars if user select old/new manifest.
+        programGui.tl_progress["value"] = 0
+        programGui.dl_progress["value"] = 0
 
     def go_download(self):
         t = Thread(target=self.go_download_background)
@@ -170,8 +219,6 @@ def do_download(manifest):
     if not mods_path.exists():
         mods_path.mkdir()
 
-    sess = requests.session()
-
     i = 1
     try:
         i_len = len(manifest_json['files'])
@@ -182,7 +229,7 @@ def do_download(manifest):
 
     print_text("Cached files are stored here:\n %s\n" % cache_path)
     print_text("%d files to download" % i_len)
-
+    programGui.tl_progress["maximum"] = i_len
     for dependency in manifest_json['files']:
         dep_cache_dir = cache_path / str(dependency['projectID']) / str(dependency['fileID'])
         if dep_cache_dir.is_dir():
@@ -195,6 +242,7 @@ def do_download(manifest):
                 print_text("[%d/%d] %s (cached)" % (i, i_len, target_file.name))
 
                 i += 1
+                programGui.tl_progress["value"] = i
 
                 # Cache access is successful,
                 # Don't download the file
@@ -206,22 +254,57 @@ def do_download(manifest):
         project_response.url = project_response.url.replace('?cookieTest=1', '')
         file_response = sess.get("%s/files/%s/download"
                                  % (project_response.url, dependency['fileID']), stream=True)
-        while file_response.is_redirect:
-            source = file_response
-            file_response = sess.get(source, stream=True)
-        file_path = Path(file_response.url)
-        file_name = unquote(file_path.name)
-        print_text("[%d/%d] %s" % (i, i_len, file_name))
-        with open(str(minecraft_path / "mods" / file_name), "wb") as mod:
-            mod.write(file_response.content)
+        global temp_file_name
+        temp_file_name = str(minecraft_path / "curseDownloader-download.temp")
+
+        requested_file_sess = sess.get(file_response.url, stream=True)
+        try:
+            full_file_size = int(requested_file_sess.headers.get('content-length'))
+        except TypeError:
+            print_text(str("[%d/%d] " + "MISSING FILE SIZE") % (i, i_len))
+            full_file_size = 100
+
+        remote_url = Path(requested_file_sess.url)
+        file_name = unquote(remote_url.name).split('?')[0]  # If query data strip it and return just the file name.
+        if file_name == "download":
+            print_text(str("[%d/%d] " + "ERROR FILE MISSING FROM SOURCE") % (i, i_len))
+            print_text(str(project_response.url) + "/" + str(dependency['fileID']))
+            i += 1
+            time.sleep(4.0)
+            continue
+        print_text(str("[%d/%d] " + file_name +
+                   " (DL: " + get_human_readable(full_file_size) + ")") % (i, i_len))
+        time.sleep(0.1)
+
+        with open(temp_file_name, 'wb') as file_data:
+            dl = 0
+            widgets = [Percentage(), Bar(), ' ', AdaptiveETA()]
+            pbar = ProgressBar(widgets=widgets, maxval=full_file_size)
+            programGui.dl_progress["maximum"] = full_file_size
+            # maybe do something
+            pbar.start()
+            for chunk in requested_file_sess.iter_content(chunk_size=1024):
+                if dl < full_file_size:
+                    dl += len(chunk)
+                elif dl > full_file_size:
+                    dl = full_file_size
+                pbar.update(dl)
+                programGui.dl_progress["value"] = dl
+                if chunk:  # filter out keep-alive new chunks
+                    file_data.write(chunk)
+            pbar.finish()
+            programGui.dl_progress["value"] = 0
+            file_data.close()
+        print('\n' + "Saving as: " + file_name + '\n')
+        shutil.move(temp_file_name, str(mods_path / file_name))  # Rename from temp to correct file name.
 
         # Try to add file to cache.
         if not dep_cache_dir.exists():
             dep_cache_dir.mkdir(parents=True)
-        with open(str(dep_cache_dir / file_name), "wb") as mod:
-            mod.write(file_response.content)
+            shutil.copyfile(str(mods_path / file_name), str(dep_cache_dir / file_name))
 
         i += 1
+        programGui.tl_progress["value"] = i
 
     # This is not available in curse-only packs
     if 'directDownload' in manifest_json:
@@ -243,6 +326,7 @@ def do_download(manifest):
                 shutil.copyfile(str(cache_target), str(target_file))
 
                 i += 1
+                programGui.tl_progress["value"] = i
 
                 # Cache access is successful,
                 # Don't download the file
@@ -257,6 +341,7 @@ def do_download(manifest):
                 mod.write(file_response.content)
 
             i += 1
+            programGui.tl_progress["value"] = i
 
     print_text("Unpacking Complete")
 
