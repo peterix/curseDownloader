@@ -11,11 +11,14 @@ from urllib.parse import urlparse, unquote
 from pathlib import Path
 from threading import Thread
 from tkinter import ttk, filedialog, sys, Tk, N, S, E, W, StringVar, Text, Scrollbar, END
-from progressbar import Bar, ETA, AdaptiveETA, Percentage, ProgressBar
+# pip3 install progressbar2 to install this module.
+# https://pythonhosted.org/progressbar2/installation.html
+from progressbar import Bar, AdaptiveETA, Percentage, ProgressBar
 
 
 temp_file_name = "curseDownloader-download.temp"
 sess = requests.session()
+erred_mod_downloads = []
 
 
 compiledExecutable = False
@@ -147,8 +150,8 @@ class DownloadUI(ttk.Frame):
     def set_output(self, message):
         self.logText["state"] = "normal"
         self.logText.insert("end", message + "\n")
-        self.logText.see(END)
         self.logText["state"] = "disabled"
+        self.logText.see(END)
 
     def set_manifest(self, file_name):
         self.manifestPath.set(file_name)
@@ -268,10 +271,11 @@ def do_download(manifest):
         file_name = unquote(remote_url.name).split('?')[0]  # If query data strip it and return just the file name.
         if file_name == "download":
             print_text(str("[%d/%d] " + "ERROR FILE MISSING FROM SOURCE") % (i, i_len))
-            print_text(str(project_response.url) + "/" + str(dependency['fileID']))
+            print_text(str(project_response.url) + "/" + str(dependency['fileID']) + "")
+            erred_mod_downloads.append(str(project_response.url) + "/" + str(dependency['fileID']))
             i += 1
-            time.sleep(4.0)
             continue
+
         print_text(str("[%d/%d] " + file_name +
                    " (DL: " + get_human_readable(full_file_size) + ")") % (i, i_len))
         time.sleep(0.1)
@@ -295,7 +299,6 @@ def do_download(manifest):
             pbar.finish()
             programGui.dl_progress["value"] = 0
             file_data.close()
-        print('\n' + "Saving as: " + file_name + '\n')
         shutil.move(temp_file_name, str(mods_path / file_name))  # Rename from temp to correct file name.
 
         # Try to add file to cache.
@@ -342,6 +345,19 @@ def do_download(manifest):
 
             i += 1
             programGui.tl_progress["value"] = i
+
+    programGui.tl_progress["value"] = 0
+
+    if len(erred_mod_downloads) is not 0:
+        print_text("\n!! WARNING !!\nThe following mod downloads failed.")
+        for index in erred_mod_downloads:
+            print_text("- " + index)
+        # Create log of failed download links to pack manifest directory for user to inspect manually.
+        log_file = open(str(target_dir_path / "cursePackDownloaderModErrors.log"), 'w')
+        log_file.write("\n".join(str(elem) for elem in erred_mod_downloads))
+        log_file.close()
+        print_text("See log in manifest directory for list.\n!! WARNING !!\n")
+        erred_mod_downloads.clear()
 
     print_text("Unpacking Complete")
 

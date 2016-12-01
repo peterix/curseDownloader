@@ -22,7 +22,7 @@ if sys.platform == "win32":
 
 setup(
     name='curseDownloader',
-    version='0.3',
+    version='0.3.1',
     author='portablejim',
     # author_email='',
     # packages=[''],
@@ -30,6 +30,6 @@ setup(
     license='GNU GENERAL PUBLIC LICENSE Version 3',
     description='Curse Forge Modpack Downloader',
     options={"build_exe": build_exe_options},
-    requires=['appdirs', 'requests'],
+    requires=['appdirs', 'requests', 'progressbar2'],
     executables=[Executable("downloader.py", targetName=targetName)]
 )
