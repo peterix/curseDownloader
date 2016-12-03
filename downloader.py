@@ -271,8 +271,8 @@ def do_download(manifest):
         file_name = unquote(remote_url.name).split('?')[0]  # If query data strip it and return just the file name.
         if file_name == "download":
             print_text(str("[%d/%d] " + "ERROR FILE MISSING FROM SOURCE") % (i, i_len))
-            print_text(str(project_response.url) + "/" + str(dependency['fileID']) + "")
-            erred_mod_downloads.append(str(project_response.url) + "/" + str(dependency['fileID']))
+            print_text(str(project_response.url) + "/files/" + str(dependency['fileID']) + "/download")
+            erred_mod_downloads.append(str(project_response.url) + "/files/" + str(dependency['fileID']) + "/download")
             i += 1
             continue
 
