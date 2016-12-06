@@ -232,7 +232,8 @@ def do_download(manifest):
 
     print_text("Cached files are stored here:\n %s\n" % cache_path)
     print_text("%d files to download" % i_len)
-    programGui.tl_progress["maximum"] = i_len
+    if args.gui:
+        programGui.tl_progress["maximum"] = i_len
     for dependency in manifest_json['files']:
         dep_cache_dir = cache_path / str(dependency['projectID']) / str(dependency['fileID'])
         if dep_cache_dir.is_dir():
@@ -245,7 +246,8 @@ def do_download(manifest):
                 print_text("[%d/%d] %s (cached)" % (i, i_len, target_file.name))
 
                 i += 1
-                programGui.tl_progress["value"] = i
+                if args.gui:
+                    programGui.tl_progress["value"] = i
 
                 # Cache access is successful,
                 # Don't download the file
@@ -284,7 +286,8 @@ def do_download(manifest):
             dl = 0
             widgets = [Percentage(), Bar(), ' ', AdaptiveETA()]
             pbar = ProgressBar(widgets=widgets, maxval=full_file_size)
-            programGui.dl_progress["maximum"] = full_file_size
+            if args.gui:
+                programGui.dl_progress["maximum"] = full_file_size
             # maybe do something
             pbar.start()
             for chunk in requested_file_sess.iter_content(chunk_size=1024):
@@ -307,7 +310,8 @@ def do_download(manifest):
             shutil.copyfile(str(mods_path / file_name), str(dep_cache_dir / file_name))
 
         i += 1
-        programGui.tl_progress["value"] = i
+        if args.gui:
+            programGui.tl_progress["value"] = i
 
     # This is not available in curse-only packs
     if 'directDownload' in manifest_json:
@@ -329,7 +333,8 @@ def do_download(manifest):
                 shutil.copyfile(str(cache_target), str(target_file))
 
                 i += 1
-                programGui.tl_progress["value"] = i
+                if args.gui:
+                    programGui.tl_progress["value"] = i
 
                 # Cache access is successful,
                 # Don't download the file
@@ -344,9 +349,11 @@ def do_download(manifest):
                 mod.write(file_response.content)
 
             i += 1
-            programGui.tl_progress["value"] = i
+            if args.gui:
+                programGui.tl_progress["value"] = i
 
-    programGui.tl_progress["value"] = 0
+        if args.gui:
+            programGui.tl_progress["value"] = 0
 
     if len(erred_mod_downloads) is not 0:
         print_text("\n!! WARNING !!\nThe following mod downloads failed.")
