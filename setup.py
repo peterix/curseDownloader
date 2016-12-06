@@ -22,7 +22,7 @@ if sys.platform == "win32":
 
 setup(
     name='curseDownloader',
-    version='0.3.1.1',
+    version='0.3.1.2',
     author='portablejim',
     # author_email='',
     # packages=[''],
