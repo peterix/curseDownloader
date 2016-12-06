@@ -296,11 +296,13 @@ def do_download(manifest):
                 elif dl > full_file_size:
                     dl = full_file_size
                 pbar.update(dl)
-                programGui.dl_progress["value"] = dl
+                if args.gui:
+                    programGui.dl_progress["value"] = dl
                 if chunk:  # filter out keep-alive new chunks
                     file_data.write(chunk)
             pbar.finish()
-            programGui.dl_progress["value"] = 0
+            if args.gui:
+                programGui.dl_progress["value"] = 0
             file_data.close()
         shutil.move(temp_file_name, str(mods_path / file_name))  # Rename from temp to correct file name.
 
