@@ -254,7 +254,7 @@ def do_download(manifest):
                 continue
 
         # File is not cached and needs to be downloaded
-        project_response = sess.get("http://minecraft.curseforge.com/mc-mods/%s"
+        project_response = sess.get("http://minecraft.curseforge.com/projects/%s"
                                     % (dependency['projectID']), stream=True)
         project_response.url = project_response.url.replace('?cookieTest=1', '')
         file_response = sess.get("%s/files/%s/download"
