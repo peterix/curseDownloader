@@ -1,43 +1,27 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 import appdirs
 import argparse
 import json
 import os
+import sys
 import time
 import requests
 import shutil
 from urllib.parse import urlparse, unquote
 from pathlib import Path
 from threading import Thread
-from tkinter import ttk, filedialog, sys, Tk, N, S, E, W, StringVar, Text, Scrollbar, END
-# pip3 install progressbar2 to install this module.
-# https://pythonhosted.org/progressbar2/installation.html
-from progressbar import Bar, AdaptiveETA, Percentage, ProgressBar
-
 
 temp_file_name = "curseDownloader-download.temp"
 sess = requests.session()
 erred_mod_downloads = []
 
-
-compiledExecutable = False
-# If in frozen state(aka executable) then use this path, else use original path.
-if getattr(sys, 'frozen', False):
-    # if frozen, get embedded file
-    CA_Certificates = os.path.join(os.path.dirname(sys.executable), 'cacert.pem')
-    compiledExecutable = True
-else:
-    # else just get the default file
-    CA_Certificates = requests.certs.where()
-# https://stackoverflow.com/questions/15157502/requests-library-missing-file-after-cx-freeze
+# else just get the default file
+CA_Certificates = requests.certs.where()
 os.environ["REQUESTS_CA_BUNDLE"] = CA_Certificates
-
 
 parser = argparse.ArgumentParser(description="Download Curse modpack mods")
 parser.add_argument("--manifest", help="manifest.json file from unzipped pack")
-parser.add_argument("--nogui", dest="gui", action="store_false", help="Do not use gui to to select manifest")
-parser.add_argument("--portable", dest="portable", action="store_true", help="Use portable cache")
 args, unknown = parser.parse_known_args()
 
 
@@ -45,8 +29,6 @@ args, unknown = parser.parse_known_args()
 def print_text(message):
     message == str(message)
     print(message)  # For the console output
-    if args.gui:
-        programGui.set_output(message)  # For the GUI output
 
 
 def get_human_readable(size, precision=2, requestz=-1):
@@ -66,109 +48,18 @@ def get_human_readable(size, precision=2, requestz=-1):
     return "%s%s" % (str("{:.3g}".format(round(size, 2))), suffixes[suffix_index])
 
 
-class DownloadUI(ttk.Frame):
-    def __init__(self):
-        self.root = Tk()
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
-        self.parent = ttk.Frame(self.root)
-        self.parent.grid(column=0, row=0, sticky=(N, S, E, W))
-        self.parent.columnconfigure(0, weight=1)
-        self.parent.rowconfigure(0, weight=1)
-        ttk.Frame.__init__(self, self.parent, padding=(6, 6, 14, 2))
-        self.grid(column=0, row=0, sticky=(N, S, E, W))
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(2, weight=1)
-
-        self.root.title("Curse Pack Downloader")
-
-        self.manifestPath = StringVar()
-
-        chooser_container = ttk.Frame(self)
-        self.chooserText = ttk.Label(chooser_container, text="Locate your manifest.json: ")
-        chooser_entry = ttk.Entry(chooser_container, textvariable=self.manifestPath)
-        self.chooserButton = ttk.Button(chooser_container, text="Browse", command=self.choose_file)
-        self.chooserText.grid(column=0, row=0, sticky=W)
-        chooser_entry.grid(column=1, row=0, sticky=(E, W), padx=5)
-        self.chooserButton.grid(column=2, row=0, sticky=E)
-        chooser_container.grid(column=0, row=0, sticky=(E, W))
-        chooser_container.columnconfigure(1, weight=1)
-        self.downloadButton = ttk.Button(self, text="Download mods", command=self.go_download)
-        self.downloadButton.grid(column=0, row=1, sticky=(E, W))
-
-        self.logText = Text(self, state="disabled", wrap="none")
-        self.logText.grid(column=0, row=2, sticky=(N, E, S, W))
-
-        self.logScroll = Scrollbar(self, command=self.logText.yview)
-        self.logScroll.grid(column=1, row=2, sticky=(N, E, S, W))
-        self.logText['yscrollcommand'] = self.logScroll.set
-
-        # *** Progress Bars Frame ***
-        progress_bars = ttk.Frame(padding=(6, 2, 14, 2))
-        progress_bars.grid(column=0, row=1, sticky=(E, W))
-        progress_bars.columnconfigure(1, weight=1)
-
-        # *** Total Un-Pack Progress ***
-        self.tl_progressText = ttk.Label(progress_bars, text="Total Unpacking Progress: ")
-        self.tl_progressText.grid(column=0, row=0, sticky=E)
-        self.tl_progress = ttk.Progressbar(progress_bars, orient="horizontal",
-                                           length=200, mode="determinate")
-        self.tl_progress.grid(column=1, row=0, sticky=(E, W))
-        self.tl_progress["value"] = 0
-        self.tl_progress["maximum"] = 100
-
-        # *** Download Progress ***
-        self.dl_progressText = ttk.Label(progress_bars, text="Current Download Progress: ")
-        self.dl_progressText.grid(column=0, row=1, sticky=E)
-        self.dl_progress = ttk.Progressbar(progress_bars, orient="horizontal",
-                                           length=200, mode="determinate")
-        self.dl_progress.grid(column=1, row=1, sticky=(E, W))
-        self.dl_progress["value"] = 0
-        self.dl_progress["maximum"] = 100
-
-    def choose_file(self):
-        file_path = filedialog.askopenfilename(
-            filetypes=(("Json files", "*.json"),),
-            initialdir=os.path.expanduser("~"),
-            parent=self)
-        self.manifestPath.set(file_path)
-        # Reset bars if user select old/new manifest.
-        programGui.tl_progress["value"] = 0
-        programGui.dl_progress["value"] = 0
-
-    def go_download(self):
-        t = Thread(target=self.go_download_background)
-        t.start()
-
-    def go_download_background(self):
-        self.downloadButton.configure(state="disabled")
-        self.chooserButton.configure(state="disabled")
-        do_download(self.manifestPath.get())
-        self.downloadButton.configure(state="enabled")
-        self.chooserButton.configure(state="enabled")
-
-    def set_output(self, message):
-        self.logText["state"] = "normal"
-        self.logText.insert("end", message + "\n")
-        self.logText["state"] = "disabled"
-        self.logText.see(END)
-
-    def set_manifest(self, file_name):
-        self.manifestPath.set(file_name)
-
-
 class HeadlessUI:
     def set_output(self, message):
         pass
 
 
-programGui = None
+programGui = HeadlessUI()
 
 
 def do_download(manifest):
     if manifest == '':
         print_text("Select a manifest file first!")
-        return None
+        return 1
     manifest_path = Path(manifest)
     target_dir_path = manifest_path.parent
 
@@ -180,11 +71,11 @@ def do_download(manifest):
     try:
         if not "minecraftModpack" == manifest_json['manifestType']:
             print_text('Manifest Error. manifestType is not "minecraftModpack"')
-            return None
+            return 1
     except KeyError as e:
         print_text('I got a KeyError - reason %s' % str(e))
         print_text("Manifest Error. Make sure you selected a valid pack manifest.json")
-        return None
+        return 1
 
     try:
         override_path = Path(target_dir_path, manifest_json['overrides'])
@@ -193,7 +84,7 @@ def do_download(manifest):
     except KeyError as e:
         print_text('I got a KeyError - reason %s' % str(e))
         print_text("Manifest Error. Make sure you selected a valid pack manifest.json")
-        return None
+        return 1
 
     if override_path.exists():
         shutil.move(str(override_path), str(minecraft_path))
@@ -201,17 +92,11 @@ def do_download(manifest):
     downloader_dirs = appdirs.AppDirs(appname="cursePackDownloader", appauthor="portablejim")
     cache_path = Path(downloader_dirs.user_cache_dir, "curseCache")
 
-    # Attempt to set proper portable data directory if asked for
-    if args.portable:
-        if getattr(sys, 'frozen', False):
-            # if frozen, get embeded file
-            cache_path = Path(os.path.join(os.path.dirname(sys.executable), 'curseCache'))
-        else:
-            if '__file__' in globals():
-                cache_path = Path(os.path.dirname(os.path.realpath(__file__)), "curseCache")
-            else:
-                print_text("Portable data dir not supported for interpreter environment")
-                sys.exit(2)
+    if '__file__' in globals():
+        cache_path = Path(os.path.dirname(os.path.realpath(__file__)), "curseCache")
+    else:
+        print_text("Portable data dir not supported for interpreter environment")
+        return 1
 
     if not cache_path.exists():
         cache_path.mkdir(parents=True)
@@ -228,12 +113,10 @@ def do_download(manifest):
     except KeyError as e:
         print_text('I got a KeyError - reason %s' % str(e))
         print_text("Manifest Error. Make sure you selected a valid pack manifest.json")
-        return None
+        return 1
 
     print_text("Cached files are stored here:\n %s\n" % cache_path)
     print_text("%d files to download" % i_len)
-    if args.gui:
-        programGui.tl_progress["maximum"] = i_len
     for dependency in manifest_json['files']:
         dep_cache_dir = cache_path / str(dependency['projectID']) / str(dependency['fileID'])
         if dep_cache_dir.is_dir():
@@ -246,8 +129,6 @@ def do_download(manifest):
                 print_text("[%d/%d] %s (cached)" % (i, i_len, target_file.name))
 
                 i += 1
-                if args.gui:
-                    programGui.tl_progress["value"] = i
 
                 # Cache access is successful,
                 # Don't download the file
@@ -284,25 +165,14 @@ def do_download(manifest):
 
         with open(temp_file_name, 'wb') as file_data:
             dl = 0
-            widgets = [Percentage(), Bar(), ' ', AdaptiveETA()]
-            pbar = ProgressBar(widgets=widgets, maxval=full_file_size)
-            if args.gui:
-                programGui.dl_progress["maximum"] = full_file_size
             # maybe do something
-            pbar.start()
             for chunk in requested_file_sess.iter_content(chunk_size=1024):
                 if dl < full_file_size:
                     dl += len(chunk)
                 elif dl > full_file_size:
                     dl = full_file_size
-                pbar.update(dl)
-                if args.gui:
-                    programGui.dl_progress["value"] = dl
                 if chunk:  # filter out keep-alive new chunks
                     file_data.write(chunk)
-            pbar.finish()
-            if args.gui:
-                programGui.dl_progress["value"] = 0
             file_data.close()
         shutil.move(temp_file_name, str(mods_path / file_name))  # Rename from temp to correct file name.
 
@@ -312,8 +182,6 @@ def do_download(manifest):
             shutil.copyfile(str(mods_path / file_name), str(dep_cache_dir / file_name))
 
         i += 1
-        if args.gui:
-            programGui.tl_progress["value"] = i
 
     # This is not available in curse-only packs
     if 'directDownload' in manifest_json:
@@ -335,8 +203,6 @@ def do_download(manifest):
                 shutil.copyfile(str(cache_target), str(target_file))
 
                 i += 1
-                if args.gui:
-                    programGui.tl_progress["value"] = i
 
                 # Cache access is successful,
                 # Don't download the file
@@ -349,13 +215,7 @@ def do_download(manifest):
             programGui.set_output("[%d/%d] %s" % (i, i_len, download_entry['filename']))
             with open(str(minecraft_path / "mods" / download_entry['filename']), "wb") as mod:
                 mod.write(file_response.content)
-
             i += 1
-            if args.gui:
-                programGui.tl_progress["value"] = i
-
-        if args.gui:
-            programGui.tl_progress["value"] = 0
 
     if len(erred_mod_downloads) is not 0:
         print_text("\n!! WARNING !!\nThe following mod downloads failed.")
@@ -367,31 +227,14 @@ def do_download(manifest):
         log_file.close()
         print_text("See log in manifest directory for list.\n!! WARNING !!\n")
         erred_mod_downloads.clear()
+        return 1
 
     print_text("Unpacking Complete")
+    return 0
 
 
-if args.gui:
-    programGui = DownloadUI()
-    if args.manifest is not None:
-        programGui.set_manifest(args.manifest)
-    programGui.root.mainloop()
+if args.manifest is not None:
+    sys.exit(do_download(args.manifest))
 else:
-    programGui = HeadlessUI()
-    if args.manifest is not None:
-        do_download(args.manifest)
-    else:
-        if sys.platform == "win32":
-            if compiledExecutable:
-                print('C:\someFolder\cursePackDownloader.exe '
-                      '--portable '
-                      '--nogui '
-                      '--manifest ["/path/to/manifest.json"]')
-                sys.exit()
-            else:
-                print(
-                    'CMD>"path/to/python" "/path/to/downloader.py" '
-                    '--portable '
-                    '--nogui '
-                    '--manifest ["/path/to/manifest.json"]')
-                sys.exit()
+    print( __file__ + ' --manifest "/path/to/manifest.json"')
+    sys.exit(1)

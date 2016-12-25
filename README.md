@@ -1,77 +1,33 @@
 # Curseforge Minecraft Modpack Downloader
 
+A **simple** script to download mods from a CurseForge Minecraft modpack.
 
-A simple script to download mods from a CurseForge Minecraft modpack.
-
-## Source Script Requirements
+## Requirements
 
 - Python 3.4+
-- appdirs 
-- python-tk
-- progressbar2
 
-## Setup For Source Script
+## Usage
 
-### Linux
-- Debian based  
-`sudo apt-get install python3 python3-tk python3-pip`  
-`pip3 install appdirs progressbar2`
+Example:
+```
+$ ./downloader.py --manifest ~/curseisevil/FTBPresentsDirewolf20110-1.1.4-1.10.2/manifest.json
+Cached files are stored here:
+ /home/peterix/minecraft/curseDownloader/curseCache
 
- - #### How to use source
+71 files to download
+[1/71] appliedenergistics2-rv4-alpha-8.jar (DL: 3.19MB)
 
-    - Find the modpack you want from the [CurseForge modpack list](http://www.curse.com/modpacks/minecraft)
-    - Unzip the download. There should be a manifest.json file.
-    - Run `<python> </path/to/downloader.py> --manifest </path/to/manifest.json file>`
-  
- - #### Compiled Executable
+.
+.
+.
 
-    - Find the modpack you want from the [CurseForge modpack list](http://www.curse.com/modpacks/minecraft)
-    - Unzip the download. There should be a manifest.json file.
-    - Run `</path/to/downloader> --manifest </path/to/manifest.json file>`
+[71/71] Draconic-Evolution-1.10.2-2.0.3.137-universal.jar (DL: 6.43MB)
+Unpacking Complete
+[peterix ~/minecraft/curseDownloader]$ echo $?
+0
 
-### Windows
- - #### Compiled Executable
-   #### Accepted Arguments
+```
 
- 	- `CMD> C:\someFolder\cursePackDownloader.exe --portable --nogui --manifest ["/path/to/manifest.json"]`
+It returns `0` on success and `1` on failure. It should be suitable for automation.
 
- 	- portable - makes the downloader cache downloads in a sub folder of current directory it is inside.
- 	 	
- 	 	ex: `CMD> C:\someFolder\cursePackDownloader.exe --portable`
- 	 	ex folder: C:\someFolder\curseCache
-
- 	- manifest - provides commandline option to select manifest.json file.
- 	
- 	 	ex: `CMD> C:\someFolder\cursePackDownloader.exe --manifest [/path/to/manifest.json]`
-
- 	- nogui - runs prgram in commandline only, and must include the manifest argument as well.
- 	 	
- 	 	ex: `CMD> C:\someFolder\cursePackDownloader.exe --nogui --manifest [/path/to/manifest.json]`
-
-  #### Python Source Script
-  download and install python http://www.python.org/downloads/windows/
-
-  take note of the install directory.
-
-  Open a command prompt and run the following (replace python_directory with your path).
-  
-  `<python_directory\Scripts\pip3.exe> install appdirs progressbar2`
-
-  #### Accepted Arguments
-
-   - CMD> `"path/to/python" "/path/to/downloader.py" --portable --nogui --manifest ["/path/to/manifest.json"]`
-
-   - portable - makes the downloader cache downloads in a sub folder of current directory it is inside.
-       
-       ex: `CMD> C:\Python34\python.exe ["/path/to/downloader.py"] --portable`
-       
-       ex folder: C:\someFolder\curseCache
-
-   - manifest - provides commandline option to select manifest.json file.
-       
-       ex:`CMD> /path/to/<python> ["/path/to/downloader.py"] --manifest ["/path/to/manifest.json"]`
-
-   - nogui - runs program in commandline only, and manifest argument must be provided as well.
-       
-       ex: `CMD> /path/to/<python> ["/path/to/downloader.py"] --nogui --manifest ["/path/to/manifest.json"]`
-
+Getting the zip file and extracting it is out of scope of this tool.
