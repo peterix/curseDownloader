@@ -95,36 +95,60 @@ def do_download(manifest):
                 # Don't download the file
                 continue
 
+
         # File is not cached and needs to be downloaded
 
-        # resolve the project name from the ID using curse's website
-        # example: https://minecraft.curseforge.com/projects/220308
-        project_response = sess.get("https://minecraft.curseforge.com/projects/%s" % (dependency['projectID']), stream=True)
-        project_response.url = project_response.url.replace('?cookieTest=1', '')
-
-        # request the file by ID, now that we have the name-based URL, this is a redirect
-        # example: https://minecraft.curseforge.com/projects/thaumic-infusion/files/2237176/download
-        file_response = sess.get("%s/files/%s/download" % (project_response.url, dependency['fileID']), stream=True)
         global temp_file_name
         temp_file_name = str(minecraft_path / "curseDownloader-download.temp")
 
-        # Get the redirected file
-        # example: http://addons.cursecdn.com/files/2237/176/ThaumicInfusion-4.jar
-        requested_file_sess = sess.get(file_response.url, stream=True)
-        try:
-            full_file_size = int(requested_file_sess.headers.get('content-length'))
-        except TypeError:
-            print(str("[%d/%d] " + "MISSING FILE SIZE") % (i, i_len))
-            full_file_size = 100
+        # FIXME: add a config thing for this.
+        if False:
+            # resolve the project name from the ID using curse's website
+            # example: https://minecraft.curseforge.com/projects/220308
+            project_response = sess.get("https://minecraft.curseforge.com/projects/%s" % (dependency['projectID']), stream=True)
+            project_response.url = project_response.url.replace('?cookieTest=1', '')
 
-        remote_url = Path(requested_file_sess.url)
-        file_name = unquote(remote_url.name).split('?')[0]  # If query data strip it and return just the file name.
-        if file_name == "download":
-            print(str("[%d/%d] " + "ERROR FILE MISSING FROM SOURCE") % (i, i_len))
-            print(str(project_response.url) + "/files/" + str(dependency['fileID']) + "/download")
-            erred_mod_downloads.append(str(project_response.url) + "/files/" + str(dependency['fileID']) + "/download")
-            i += 1
-            continue
+            # request the file by ID, now that we have the name-based URL, this is a redirect
+            # example: https://minecraft.curseforge.com/projects/thaumic-infusion/files/2237176/download
+            file_response = sess.get("%s/files/%s/download" % (project_response.url, dependency['fileID']), stream=True)
+
+            # Get the redirected file
+            # example: http://addons.cursecdn.com/files/2237/176/ThaumicInfusion-4.jar
+            requested_file_sess = sess.get(file_response.url, stream=True)
+            try:
+                full_file_size = int(requested_file_sess.headers.get('content-length'))
+            except TypeError:
+                print(str("[%d/%d] " + "MISSING FILE SIZE") % (i, i_len))
+                full_file_size = 100
+
+            remote_url = Path(requested_file_sess.url)
+            file_name = unquote(remote_url.name).split('?')[0]  # If query data strip it and return just the file name.
+            if file_name == "download":
+                print(str("[%d/%d] " + "ERROR FILE MISSING FROM SOURCE") % (i, i_len))
+                print(str(project_response.url) + "/files/" + str(dependency['fileID']) + "/download")
+                erred_mod_downloads.append(str(project_response.url) + "/files/" + str(dependency['fileID']) + "/download")
+                i += 1
+                continue
+        else:
+            # get the json from Dries:
+            metabase = "https://cursemeta.dries007.net"
+            metaurl = "%s/%s/%s.json" % (metabase, dependency['projectID'], dependency['fileID'])
+            r = sess.get(metaurl)
+            r.raise_for_status()
+            main_json = r.json()
+            if "code" in main_json:
+                print(str("[%d/%d] " + "ERROR FILE") % (i, i_len))
+                erred_mod_downloads.append(metaurl.url)
+                i += 1
+                continue
+            fileurl = main_json["DownloadURL"]
+            file_name = main_json["FileNameOnDisk"]
+            requested_file_sess = sess.get(fileurl, stream=True)
+            try:
+                full_file_size = int(requested_file_sess.headers.get('content-length'))
+            except TypeError:
+                print(str("[%d/%d] " + "MISSING FILE SIZE") % (i, i_len))
+                full_file_size = 100
 
         print(str("[%d/%d] " + file_name + " (DL: %d)") % (i, i_len, full_file_size))
 
